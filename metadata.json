@@ -1,0 +1,6 @@
+{
+  "name": "星醫美學-EIP全表單儀表板",
+  "description": "全方位的EIP表單儀表板視覺化工具。支援百萬筆級距資料分析，包含表單處理效率、帳號權限稽核與 AI 流程優化建議。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
