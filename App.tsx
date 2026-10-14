@@ -16,6 +16,7 @@ const APP_VERSION = "v3.9.6 (新增部室專區篩選與獨立各表分析)";
 // Default Data Sources
 // 資料來源連結不寫在程式碼中（repo 為公開），首次使用請於「設定來源」貼上，會保存在本機瀏覽器。
 const DEFAULT_URLS = '';
+const LOAD_PENDING_KEY = 'EIP_LOAD_PENDING';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'data' | 'insights' | 'approver' | 'funnel' | 'heatmap' | 'innovation' | 'syseng' | 'dev'>('dashboard');
@@ -70,6 +71,9 @@ function App() {
         return;
     }
 
+    // 當機保護：讀取中先記號，完成或失敗才清除；若頁面在讀取中崩潰重載，下次開啟就不會再自動讀取
+    try { localStorage.setItem(LOAD_PENDING_KEY, String(Date.now())); } catch {}
+
     try {
       setTimeout(async () => {
           try {
@@ -77,6 +81,7 @@ function App() {
                 if(isMounted.current) setLoadingStatus(msg);
             });
             
+            try { localStorage.removeItem(LOAD_PENDING_KEY); } catch {}
             if (isMounted.current) {
                 if (sheetData.length > 0) {
                     setData(sheetData);
@@ -94,6 +99,7 @@ function App() {
             }
           } catch (e: any) {
              console.warn("Sheet data processing warning:", e);
+             try { localStorage.removeItem(LOAD_PENDING_KEY); } catch {}
              if(isMounted.current) {
                  const msg = `${e.message || "資料讀取失敗，請確認網路連線或共用權限。"}`;
                  setErrorMsg(msg);
@@ -116,7 +122,17 @@ function App() {
   };
 
   useEffect(() => {
-    if (sourceInput.trim()) {
+    let crashedLastTime = false;
+    try {
+      const pending = Number(localStorage.getItem(LOAD_PENDING_KEY) || 0);
+      crashedLastTime = pending > 0 && Date.now() - pending < 30 * 60 * 1000;
+      localStorage.removeItem(LOAD_PENDING_KEY);
+    } catch {}
+
+    if (crashedLastTime) {
+      setErrorMsg("上次讀取資料時頁面中斷重新載入（多半是裝置記憶體不足，手機最常發生）。\n\n已暫停自動讀取，避免反覆重載。\n建議改用電腦開啟；若要再試一次，請按「重新讀取」。");
+      setShowErrorModal(true);
+    } else if (sourceInput.trim()) {
       loadData();
     } else {
       setIsSettingsOpen(true);
